@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            **/packages.test.lock.json
+      - name: Check release version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="$(dotnet msbuild src/Campfire.Valheim/Campfire.Valheim.csproj -nologo -getProperty:Version -property:Configuration=Release)"
+          if [[ "$RELEASE_TAG" != "v$version" ]]; then
+            echo "::error::Tag must match Version in Directory.Build.props (v$version)."
+            exit 1
+          fi
+      - run: make restore
+      - run: make check
+      - run: make package
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cp "artifacts/Campfire.Valheim-${RELEASE_TAG#v}.zip" artifacts/Campfire.Valheim.zip
+          gh release create "$RELEASE_TAG" artifacts/Campfire.Valheim.zip --verify-tag --title "$RELEASE_TAG" --generate-notes --latest

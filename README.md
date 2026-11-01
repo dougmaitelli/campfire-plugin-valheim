@@ -5,6 +5,8 @@ A BepInEx plugin that sends Valheim server information and activity to
 management panel. Install it on the dedicated server; players can use an unmodified
 Valheim client.
 
+[Download the latest release](https://github.com/dougmaitelli/campfire-plugin-valheim/releases/latest/download/Campfire.Valheim.zip)
+
 ## Features
 
 - Connected player count, refreshed every 15 seconds.
@@ -23,8 +25,8 @@ Valheim client.
 2. Install [BepInExPack for Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
    on your Linux dedicated server, following the pack's server instructions. Start
    Valheim through its BepInEx launcher and keep the `-batchmode -nographics` arguments.
-3. Download `Campfire.Valheim-<version>.zip` from a release or the CI artifact and
-   extract it into the Valheim server directory. The plugin should be at
+3. Extract the downloaded `Campfire.Valheim.zip` into the Valheim server directory.
+   The plugin should be at
    `BepInEx/plugins/CampfireValheim/Campfire.Valheim.dll`.
 4. Start or restart the server through Campfire. The server container needs Spark's
    integration socket mounted at `/run/campfire-game/publish.sock`; Campfire provides
@@ -48,5 +50,9 @@ make package
 
 The installable ZIP is written to `artifacts/`. Automated tests cover publishing,
 socket transport, and event processing without running Valheim.
+
+To publish a release, update `Version` in `Directory.Build.props` and push the
+matching tag (for example, `v0.1.0`). The release workflow checks the build and
+publishes the ZIP to GitHub Releases.
 
 MIT licensed. See [LICENSE](LICENSE).
