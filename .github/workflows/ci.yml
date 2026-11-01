@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      source: ${{ steps.paths.outputs.source }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: paths
+        with:
+          filters: |
+            source:
+              - 'src/**'
+              - '.github/**'
+              - '.editorconfig'
+              - '*.props'
+              - '*.slnx'
+              - 'NuGet.Config'
+              - 'global.json'
+              - 'Makefile'
+              - 'README.md'
+              - 'LICENSE'
+
+  integration:
+    needs: changes
+    if: needs.changes.outputs.source == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            **/packages.test.lock.json
+      - run: make restore
+      - run: make check
+      - run: make package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Campfire.Valheim
+          path: artifacts/*.zip
+          if-no-files-found: error
+
+  ci-result:
+    if: always()
+    needs: [changes, integration]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require successful selected checks
+        env:
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: |
+          case "$RESULTS" in
+            *failure*|*cancelled*) exit 1 ;;
+          esac

@@ -1,0 +1,10 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <BuildType Name="Test" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Campfire.Valheim/Campfire.Valheim.csproj" />
+  </Folder>
+</Solution>

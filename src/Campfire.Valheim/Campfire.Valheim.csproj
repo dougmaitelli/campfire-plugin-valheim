@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework Condition="'$(Configuration)' != 'Test'">netstandard2.1</TargetFramework>
+    <TargetFramework Condition="'$(Configuration)' == 'Test'">net10.0</TargetFramework>
+    <IsTestProject Condition="'$(Configuration)' == 'Test'">true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <NuGetLockFilePath Condition="'$(Configuration)' == 'Test'">packages.test.lock.json</NuGetLockFilePath>
+    <AssemblyName>Campfire.Valheim</AssemblyName>
+    <BepInExPluginGuid>io.campfire.valheim</BepInExPluginGuid>
+    <BepInExPluginName>Campfire Valheim</BepInExPluginName>
+    <CopyLocalLockFileAssemblies Condition="'$(Configuration)' != 'Test'">false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Test'">
+    <Compile Remove="Tests/**/*.cs" />
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" IncludeAssets="compile;build;analyzers" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
+    <PackageReference Include="HarmonyX" Version="2.9.0" PrivateAssets="all" IncludeAssets="compile;build;analyzers" />
+    <PackageReference Include="UnityEngine.Modules" Version="2022.3.50" PrivateAssets="all" IncludeAssets="compile;build;analyzers" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Test'">
+    <Compile Remove="Plugin.cs;DeathHooks.cs" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
+  </ItemGroup>
+  <Target Name="Package" DependsOnTargets="Build">
+    <Error Condition="'$(Configuration)' != 'Release'" Text="Packages must be built with Configuration=Release." />
+    <PropertyGroup>
+      <PackageDirectory>$(MSBuildProjectDirectory)/../../artifacts/package</PackageDirectory>
+      <PackageFile>$(MSBuildProjectDirectory)/../../artifacts/Campfire.Valheim-$(Version).zip</PackageFile>
+    </PropertyGroup>
+    <RemoveDir Directories="$(PackageDirectory)" />
+    <MakeDir Directories="$(PackageDirectory)/BepInEx/plugins/CampfireValheim" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PackageDirectory)/BepInEx/plugins/CampfireValheim" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/../../README.md;$(MSBuildProjectDirectory)/../../LICENSE" DestinationFolder="$(PackageDirectory)" />
+    <ZipDirectory SourceDirectory="$(PackageDirectory)" DestinationFile="$(PackageFile)" Overwrite="true" />
+  </Target>
+</Project>
