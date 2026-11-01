@@ -15,7 +15,7 @@
     <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" IncludeAssets="compile;build;analyzers" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
     <PackageReference Include="HarmonyX" Version="2.9.0" PrivateAssets="all" IncludeAssets="compile;build;analyzers" />
-    <PackageReference Include="UnityEngine.Modules" Version="2022.3.50" PrivateAssets="all" IncludeAssets="compile;build;analyzers" />
+    <PackageReference Include="UnityEngine.Modules" Version="6000.6.6" PrivateAssets="all" IncludeAssets="compile;build;analyzers" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == 'Test'">
     <Compile Remove="Plugin.cs;DeathHooks.cs" />
