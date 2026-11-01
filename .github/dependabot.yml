@@ -1,7 +1,13 @@
 version: 2
+registries:
+  bepinex:
+    type: nuget-feed
+    url: https://nuget.bepinex.dev/v3/index.json
 updates:
   - package-ecosystem: nuget
     directory: /
+    registries:
+      - bepinex
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
