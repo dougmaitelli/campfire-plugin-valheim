@@ -20,6 +20,7 @@ public sealed class Publisher : IDisposable
     private readonly IPublicationTransport transport;
     private readonly Action<string> warn;
     private readonly int maximum;
+    private readonly byte[] registration = ValheimRegistration.CreatePublication().Encode();
     private readonly object gate = new();
     private readonly Queue<Pending> events = new();
     private readonly CancellationTokenSource cancellation = new();
@@ -28,6 +29,8 @@ public sealed class Publisher : IDisposable
     private DateTimeOffset nextState;
     private DateTimeOffset nextAttempt;
     private int failures;
+    private bool registered;
+    private bool registrationRejected;
     private int disposed;
 
     public Publisher(IPublicationTransport transport, Action<string> warn, int maximum = 256)
@@ -84,8 +87,33 @@ public sealed class Publisher : IDisposable
             return;
         }
 
+        ExpireEvents(now);
+        if (registrationRejected) { return; }
+
         try
         {
+            if (!registered)
+            {
+                var reply = transport.Register(registration, token);
+                if (reply.StatusCode != 204)
+                {
+                    if (reply.Retryable || reply.StatusCode >= 200 && reply.StatusCode < 300)
+                    {
+                        Backoff(now, reply.RetryAfter, "Registration not committed: HTTP " + reply.StatusCode);
+                    }
+                    else
+                    {
+                        registrationRejected = true;
+                        warn("Campfire rejected registration: HTTP " + reply.StatusCode
+                            + ". Publishing paused; check the server's game integration configuration and registration revision, then restart the plugin.");
+                    }
+
+                    return;
+                }
+
+                registered = true;
+            }
+
             var state = Volatile.Read(ref latest);
             if (state != null && now >= nextState && now - state.CapturedAt < TimeSpan.FromSeconds(30))
             {
@@ -143,9 +171,25 @@ public sealed class Publisher : IDisposable
         {
             if (!token.IsCancellationRequested)
             {
+                registered = false;
                 Backoff(now, TimeSpan.Zero, "Spark connection unavailable: " + error.Message);
             }
         }
+    }
+
+    private void ExpireEvents(DateTimeOffset now)
+    {
+        var expired = 0;
+        lock (gate)
+        {
+            while (events.Count > 0 && now - events.Peek().QueuedAt >= TimeSpan.FromHours(24))
+            {
+                events.Dequeue();
+                expired++;
+            }
+        }
+
+        if (expired > 0) { warn(expired + " unaccepted Campfire events expired after 24 hours."); }
     }
 
     private void RemovePending() { lock (gate) { events.Dequeue(); } }

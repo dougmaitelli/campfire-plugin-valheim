@@ -20,11 +20,20 @@ public sealed class Publication
     [DataMember(Name = "event", EmitDefaultValue = false, Order = 2)]
     public GameEvent? Event { get; set; }
 
+    [DataMember(Name = "registration", EmitDefaultValue = false, Order = 3)]
+    public GameRegistration? Registration { get; set; }
+
     public byte[] Encode()
     {
-        if ((State == null) == (Event == null))
+        var payloads = (State != null ? 1 : 0) + (Event != null ? 1 : 0) + (Registration != null ? 1 : 0);
+        if (Version != 1 || payloads != 1)
         {
-            throw new InvalidOperationException("A publication must contain exactly one state or event.");
+            throw new InvalidOperationException("Version 1 requires exactly one registration, state or event.");
+        }
+
+        if (Registration != null && (Registration.Revision < 1 || Registration.Revision > 9_007_199_254_740_991))
+        {
+            throw new InvalidOperationException("Registration requires a positive, JSON-safe revision.");
         }
 
         var serializer = new DataContractJsonSerializer(typeof(Publication),

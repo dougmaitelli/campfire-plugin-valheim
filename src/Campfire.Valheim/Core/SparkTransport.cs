@@ -24,6 +24,7 @@ public sealed class PublishReply
 
 public interface IPublicationTransport
 {
+    PublishReply Register(byte[] registration, CancellationToken cancellation);
     PublishReply Publish(byte[] publication, CancellationToken cancellation);
 }
 
@@ -40,7 +41,13 @@ public sealed class SparkTransport : IPublicationTransport
         this.timeout = timeout ?? TimeSpan.FromSeconds(10);
     }
 
-    public PublishReply Publish(byte[] publication, CancellationToken cancellation)
+    public PublishReply Register(byte[] registration, CancellationToken cancellation) =>
+        Send("PUT", "/v1/registration", registration, cancellation);
+
+    public PublishReply Publish(byte[] publication, CancellationToken cancellation) =>
+        Send("POST", "/v1/publish", publication, cancellation);
+
+    private PublishReply Send(string method, string path, byte[] publication, CancellationToken cancellation)
     {
         if (publication.Length == 0 || publication.Length > 16 * 1024)
         {
@@ -54,7 +61,7 @@ public sealed class SparkTransport : IPublicationTransport
         using var registration = deadline.Token.Register(() => socket.Dispose());
         socket.Connect(endpoint);
         using var stream = new NetworkStream(socket, ownsSocket: false);
-        var headers = Encoding.ASCII.GetBytes("POST /v1/publish HTTP/1.1\r\nHost: spark\r\nContent-Type: application/json\r\nContent-Length: "
+        var headers = Encoding.ASCII.GetBytes(method + " " + path + " HTTP/1.1\r\nHost: spark\r\nContent-Type: application/json\r\nContent-Length: "
             + publication.Length.ToString(CultureInfo.InvariantCulture) + "\r\nConnection: close\r\n\r\n");
         stream.Write(headers, 0, headers.Length);
         stream.Write(publication, 0, publication.Length);

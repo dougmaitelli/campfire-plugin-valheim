@@ -17,11 +17,11 @@ Valheim client.
 - First boss defeat notifications based on world progression. Previously defeated
   bosses are not announced on startup, and repeat kills do not generate notifications.
 - Integration connection events and announcements submitted by other server mods.
+- Human-readable state and event field labels, registered once before publishing.
 
 ## Installation
 
-1. Enable game integrations on Campfire's Spark agent with `--game-integrations`
-   or `SPARK_GAME_INTEGRATIONS=true`.
+1. In Campfire, edit this server and select **Enable game integration**.
 2. Install [BepInExPack for Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
    on your Linux dedicated server, following the pack's server instructions. Start
    Valheim through its BepInEx launcher and keep the `-batchmode -nographics` arguments.
@@ -32,11 +32,41 @@ Valheim client.
    integration socket mounted at `/run/campfire-game/publish.sock`; Campfire provides
    this for newly created containers when game integrations are enabled.
 5. Check `BepInEx/LogOutput.log` for `Campfire Valheim <version> started`, then check
-   the player readings and **Game activity** tab in Campfire.
+   the player readings and **Activity** tab in Campfire.
 
 BepInEx creates `BepInEx/config/io.campfire.valheim.cfg` on first load. You can use
 it to disable death or boss notifications, hide player names, or override server
 capacity. Restart the server after editing it.
+
+## Registration and delivery
+
+At startup, the background publisher sends a version 1 label manifest to
+`PUT /v1/registration` over the same private Unix socket used for publications.
+It waits for Campfire's `204 No Content` acknowledgement before sending any
+state snapshots or events. The ordinary `valheim.integration.started` activity
+still appears, but is not used as a registration handshake.
+
+The manifest declares labels for `world` and `invite_code`, player names on
+join/leave/death events, boss progression fields, and announcement messages.
+Definitions are independent of current values: registering a `player` label does
+not send player names when `IncludePlayerNames` is disabled. Snapshots and events
+continue sending stable machine keys and values without repeating labels.
+
+Registration is idempotent and persists across panel restarts and Spark reconnects.
+The plugin re-registers after socket errors before retrying publications, but not
+on every heartbeat. Temporary failures respect `Retry-After` and use bounded
+exponential backoff. Until registration succeeds, only the latest state and a
+bounded in-memory event queue are retained; events expire after 24 hours.
+
+A permanent registration rejection (such as `400`, `403`, `404`, or `409`) pauses
+publishing and logs a warning rather than silently falling back to unregistered
+data. Check the server's game integration configuration and resolve any
+registration revision conflict before restarting the server.
+
+The manifest's revision starts at `1` and is separate from the plugin version.
+When modifying `src/Campfire.Valheim/Core/GameRegistration.cs`, increase
+`ValheimRegistration.Revision`. Campfire accepts an identical retry but rejects
+changed definitions at the same revision or any older revision.
 
 ## Building
 

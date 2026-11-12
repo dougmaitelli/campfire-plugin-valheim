@@ -13,8 +13,10 @@ namespace Campfire.Valheim.Tests;
 
 public sealed class SparkTransportTests
 {
-    [Fact]
-    public async Task PublishesValidHTTPOverAnActualUnixSocket()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SendsPublicationAndRegistrationOverAnActualUnixSocket(bool registering)
     {
         var path = Path.Combine(Path.GetTempPath(), "cfvh-" + Guid.NewGuid().ToString("N") + ".sock");
         using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
@@ -37,7 +39,7 @@ public sealed class SparkTransportTests
                     Assert.True(headers.Length < 8192);
                 }
 
-                Assert.StartsWith("POST /v1/publish HTTP/1.1\r\n", tail);
+                Assert.StartsWith(registering ? "PUT /v1/registration HTTP/1.1\r\n" : "POST /v1/publish HTTP/1.1\r\n", tail);
                 var contentLength = 0;
                 foreach (var line in tail.Split("\r\n"))
                 {
@@ -51,14 +53,27 @@ public sealed class SparkTransportTests
                 stream.ReadExactly(body);
                 using var json = JsonDocument.Parse(body);
                 Assert.Equal(1, json.RootElement.GetProperty("version").GetInt32());
-                Assert.Equal("player.died", json.RootElement.GetProperty("event").GetProperty("type").GetString());
+                if (registering)
+                {
+                    var registration = json.RootElement.GetProperty("registration");
+                    Assert.Equal(ValheimRegistration.Revision, registration.GetProperty("revision").GetInt64());
+                    Assert.Equal("Invite code", registration.GetProperty("state_fields").GetProperty("invite_code").GetString());
+                }
+                else
+                {
+                    Assert.Equal("player.died", json.RootElement.GetProperty("event").GetProperty("type").GetString());
+                }
                 Assert.False(json.RootElement.TryGetProperty("server_id", out _));
-                var reply = Encoding.ASCII.GetBytes("HTTP/1.1 202 Accepted\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                var status = registering ? "204 No Content" : "202 Accepted";
+                var reply = Encoding.ASCII.GetBytes("HTTP/1.1 " + status + "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
                 stream.Write(reply);
             });
-            var publication = new Publication { Event = new GameEvent { Type = "player.died", Title = "Alex died" } }.Encode();
-            var result = await Task.Run(() => new SparkTransport(path).Publish(publication, CancellationToken.None));
-            Assert.Equal(202, result.StatusCode);
+            var publication = registering ? ValheimRegistration.CreatePublication().Encode()
+                : new Publication { Event = new GameEvent { Type = "player.died", Title = "Alex died" } }.Encode();
+            var transport = new SparkTransport(path);
+            var result = await Task.Run(() => registering ? transport.Register(publication, CancellationToken.None)
+                : transport.Publish(publication, CancellationToken.None));
+            Assert.Equal(registering ? 204 : 202, result.StatusCode);
             await server.WaitAsync(TimeSpan.FromSeconds(5));
         }
         finally { File.Delete(path); }
