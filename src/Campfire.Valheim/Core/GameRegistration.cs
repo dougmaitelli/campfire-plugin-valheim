@@ -20,7 +20,7 @@ public static class ValheimRegistration
 {
     // This is a persistent schema revision, not the plugin release version.
     // Increase it whenever changing the label definitions below.
-    public const long Revision = 1;
+    public const long Revision = 2;
 
     public static Publication CreatePublication() => new()
     {
@@ -30,7 +30,8 @@ public static class ValheimRegistration
             StateFields = new()
             {
                 ["world"] = "World name",
-                ["invite_code"] = "Invite code"
+                ["invite_code"] = "Invite code",
+                ["player_names"] = "Online players"
             },
             EventFields = new()
             {

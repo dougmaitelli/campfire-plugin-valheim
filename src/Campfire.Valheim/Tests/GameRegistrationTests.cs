@@ -20,10 +20,12 @@ public sealed class GameRegistrationTests
         Assert.False(root.TryGetProperty("event", out _));
         Assert.False(root.TryGetProperty("server_id", out _));
         var registration = root.GetProperty("registration");
+        Assert.Equal(2, ValheimRegistration.Revision);
         Assert.Equal(ValheimRegistration.Revision, registration.GetProperty("revision").GetInt64());
         var state = registration.GetProperty("state_fields");
         Assert.Equal("World name", state.GetProperty("world").GetString());
         Assert.Equal("Invite code", state.GetProperty("invite_code").GetString());
+        Assert.Equal("Online players", state.GetProperty("player_names").GetString());
         var events = registration.GetProperty("event_fields");
         foreach (var type in new[] { "player.joined", "player.left", "player.died" })
         {

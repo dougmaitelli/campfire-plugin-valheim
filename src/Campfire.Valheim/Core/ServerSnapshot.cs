@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Runtime.Serialization.Json;
 
 namespace Campfire.Valheim.Core;
 
@@ -38,9 +40,9 @@ public sealed class ServerSnapshot
         InviteCode = InviteCodeReader.Validate(inviteCode);
     }
 
-    public Publication StatePublication()
+    public Publication StatePublication(bool includeNames = true)
     {
-        var fields = new Dictionary<string, string>();
+        var fields = new Dictionary<string, object>();
         if (World != null)
         {
             fields["world"] = World;
@@ -51,7 +53,33 @@ public sealed class ServerSnapshot
             fields["invite_code"] = InviteCode;
         }
 
+        if (includeNames)
+        {
+            fields["player_names"] = PlayerNames();
+        }
+
         return new Publication { State = new GameState { Players = Players.Count, Capacity = Capacity, Fields = fields } };
+    }
+
+    private string[] PlayerNames()
+    {
+        // Leave room in the 16 KiB envelope for the world name, invite code and
+        // metadata, even when JSON escaping expands control characters.
+        const int maximumEncodedBytes = 8 * 1024;
+        var names = new List<string>();
+        var serializer = new DataContractJsonSerializer(typeof(string));
+        var encodedBytes = 2; // Array brackets.
+        foreach (var player in Players.OrderBy(player => player.Name, StringComparer.Ordinal).ThenBy(player => player.ID).Take(64))
+        {
+            using var encoded = new MemoryStream();
+            serializer.WriteObject(encoded, player.Name);
+            var size = (int)encoded.Length + (names.Count == 0 ? 0 : 1);
+            if (encodedBytes + size > maximumEncodedBytes) { break; }
+            names.Add(player.Name);
+            encodedBytes += size;
+        }
+
+        return names.ToArray();
     }
 }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using Campfire.Valheim.Core;
 using Xunit;
@@ -38,6 +39,46 @@ public sealed class PublisherTests
     }
 
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-24T00:00:00Z");
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PlayerListsFollowPrivacyAndAreReplacedByEachHeartbeat(bool includeNames)
+    {
+        var transport = new Transport();
+        using var publisher = new Publisher(transport, _ => { }, includePlayerNames: includeNames);
+        publisher.SetState(new ServerSnapshot("one", "Meadows", 10, new[] { new PlayerSnapshot(1, "Alex") }, Now));
+        publisher.ProcessOnce(Now, CancellationToken.None);
+        publisher.SetState(new ServerSnapshot("one", "Meadows", 10, new[] { new PlayerSnapshot(2, "Sam") }, Now.AddSeconds(15)));
+        publisher.ProcessOnce(Now.AddSeconds(15), CancellationToken.None);
+        publisher.SetState(new ServerSnapshot("one", "Meadows", 10, Array.Empty<PlayerSnapshot>(), Now.AddSeconds(30)));
+        publisher.ProcessOnce(Now.AddSeconds(30), CancellationToken.None);
+        Assert.Equal(3, transport.Requests.Count);
+        Assert.Single(transport.Registrations);
+        for (var i = 0; i < transport.Requests.Count; i++)
+        {
+            using var document = JsonDocument.Parse(transport.Requests[i]);
+            var state = document.RootElement.GetProperty("state");
+            Assert.Equal(i == 2 ? 0 : 1, state.GetProperty("players").GetInt32());
+            var fields = state.GetProperty("fields");
+            Assert.Equal(includeNames, fields.TryGetProperty("player_names", out var roster));
+            if (includeNames)
+            {
+                Assert.Equal(i == 2 ? Array.Empty<string>() : new[] { i == 0 ? "Alex" : "Sam" },
+                    roster.EnumerateArray().Select(item => item.GetString()));
+            }
+            else
+            {
+                Assert.DoesNotContain("Alex", document.RootElement.GetRawText());
+                Assert.DoesNotContain("Sam", document.RootElement.GetRawText());
+            }
+        }
+
+        publisher.ProcessOnce(Now.AddSeconds(61), CancellationToken.None);
+        publisher.SetState(null);
+        publisher.ProcessOnce(Now.AddSeconds(76), CancellationToken.None);
+        Assert.Equal(3, transport.Requests.Count);
+    }
 
     [Fact]
     public void RegistersBeforeStateAndEventsAndDoesNotRepeatLabelsOnHeartbeats()

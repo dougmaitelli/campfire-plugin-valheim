@@ -20,6 +20,7 @@ public sealed class Publisher : IDisposable
     private readonly IPublicationTransport transport;
     private readonly Action<string> warn;
     private readonly int maximum;
+    private readonly bool includePlayerNames;
     private readonly byte[] registration = ValheimRegistration.CreatePublication().Encode();
     private readonly object gate = new();
     private readonly Queue<Pending> events = new();
@@ -33,12 +34,13 @@ public sealed class Publisher : IDisposable
     private bool registrationRejected;
     private int disposed;
 
-    public Publisher(IPublicationTransport transport, Action<string> warn, int maximum = 256)
+    public Publisher(IPublicationTransport transport, Action<string> warn, int maximum = 256, bool includePlayerNames = true)
     {
         if (maximum < 1 || maximum > 4096) { throw new ArgumentOutOfRangeException(nameof(maximum)); }
         this.transport = transport;
         this.warn = warn;
         this.maximum = maximum;
+        this.includePlayerNames = includePlayerNames;
     }
 
     public int PendingEvents { get { lock (gate) { return events.Count; } } }
@@ -117,7 +119,7 @@ public sealed class Publisher : IDisposable
             var state = Volatile.Read(ref latest);
             if (state != null && now >= nextState && now - state.CapturedAt < TimeSpan.FromSeconds(30))
             {
-                var reply = transport.Publish(state.StatePublication().Encode(), token);
+                var reply = transport.Publish(state.StatePublication(includePlayerNames).Encode(), token);
                 if (reply.StatusCode != 204 && reply.Retryable)
                 {
                     Backoff(now, reply.RetryAfter, "State publication returned HTTP " + reply.StatusCode);

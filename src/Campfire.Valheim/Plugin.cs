@@ -38,7 +38,7 @@ public sealed class Plugin : BaseUnityPlugin
             new ConfigDescription("Observe players on Unity's main thread; state heartbeats run every 15 seconds.", new AcceptableValueRange<float>(1, 10)));
         capacity = Config.Bind("State", "CapacityOverride", 0,
             new ConfigDescription("0 reads the game's player-limit field when available; set explicitly if another mod changes its semantics.", new AcceptableValueRange<int>(0, 1_000_000)));
-        playerNames = Config.Bind("Events", "IncludePlayerNames", true, "Include display names in player events. Never publishes platform IDs or IP addresses.");
+        playerNames = Config.Bind("Events", "IncludePlayerNames", true, "Include display names in player events and the current player list. Requires list-capable Spark and Campfire for state publishing. Never publishes platform IDs or IP addresses. Restart after changing settings.");
         deaths = Config.Bind("Events", "ReportDeaths", true, "Report player death broadcasts.");
         bossDefeats = Config.Bind("Events", "ReportBossDefeats", true, "Report newly observed first boss defeats from world progression. Restart after changing settings.");
         if (!enabledSetting.Value || !Application.isBatchMode)
@@ -50,7 +50,7 @@ public sealed class Plugin : BaseUnityPlugin
 
         try
         {
-            publisher = new Publisher(new SparkTransport(socket.Value), message => Logger.LogWarning(message));
+            publisher = new Publisher(new SparkTransport(socket.Value), message => Logger.LogWarning(message), includePlayerNames: playerNames.Value);
             players = new PlayerTracker(playerNames.Value);
             publisher.Start();
             instance = this;

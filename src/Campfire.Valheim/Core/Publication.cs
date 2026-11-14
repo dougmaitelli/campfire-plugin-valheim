@@ -37,7 +37,7 @@ public sealed class Publication
         }
 
         var serializer = new DataContractJsonSerializer(typeof(Publication),
-            new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
+            new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true, KnownTypes = new[] { typeof(string[]) } });
         using var output = new MemoryStream();
         serializer.WriteObject(output, this);
         if (output.Length > 16 * 1024)
@@ -59,7 +59,7 @@ public sealed class GameState
     public int? Capacity { get; set; }
 
     [DataMember(Name = "fields")]
-    public Dictionary<string, string> Fields { get; set; } = new();
+    public Dictionary<string, object> Fields { get; set; } = new();
 }
 
 [DataContract]
