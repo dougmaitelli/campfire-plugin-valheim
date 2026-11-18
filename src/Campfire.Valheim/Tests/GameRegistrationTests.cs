@@ -20,7 +20,7 @@ public sealed class GameRegistrationTests
         Assert.False(root.TryGetProperty("event", out _));
         Assert.False(root.TryGetProperty("server_id", out _));
         var registration = root.GetProperty("registration");
-        Assert.Equal(2, ValheimRegistration.Revision);
+        Assert.Equal(3, ValheimRegistration.Revision);
         Assert.Equal(ValheimRegistration.Revision, registration.GetProperty("revision").GetInt64());
         var state = registration.GetProperty("state_fields");
         Assert.Equal("World name", state.GetProperty("world").GetString());
@@ -33,7 +33,7 @@ public sealed class GameRegistrationTests
         }
 
         Assert.Equal("Boss", events.GetProperty("valheim.boss.defeated").GetProperty("boss").GetString());
-        Assert.Equal("Progression key", events.GetProperty("valheim.boss.defeated").GetProperty("progression_key").GetString());
+        Assert.False(events.GetProperty("valheim.boss.defeated").TryGetProperty("progression_key", out _));
         Assert.Equal("Source", events.GetProperty("valheim.boss.defeated").GetProperty("source").GetString());
         Assert.Equal("Message", events.GetProperty("game.announcement").GetProperty("message").GetString());
         Assert.Empty(events.GetProperty("valheim.integration.started").EnumerateObject());

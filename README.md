@@ -16,6 +16,11 @@ Valheim client.
   without a cause or killer.
 - First boss defeat notifications based on world progression. Previously defeated
   bosses are not announced on startup, and repeat kills do not generate notifications.
+  Modded bosses use localized in-game character names when available, falling back
+  to prefab names. Boss progression keys ending in `_pN` (a positive phase number)
+  are grouped with their base key; only the highest discovered phase is monitored
+  (for example, `FrozenKing_p3` instead of `FrozenKing`). Internal progression keys
+  are not included in events.
 - Integration connection events and announcements submitted by other server mods.
 - Human-readable state and event field labels, registered once before publishing.
 
@@ -73,7 +78,7 @@ state snapshots or events. The ordinary `valheim.integration.started` activity
 still appears, but is not used as a registration handshake.
 
 The manifest declares labels for `world`, `invite_code`, and `player_names`, player names on
-join/leave/death events, boss progression fields, and announcement messages.
+join/leave/death events, boss names and event sources, and announcement messages.
 Definitions are independent of current values: registering a `player` label does
 not send player names when `IncludePlayerNames` is disabled. Snapshots and events
 continue sending stable machine keys and values without repeating labels.
@@ -89,7 +94,7 @@ publishing and logs a warning rather than silently falling back to unregistered
 data. Check the server's game integration configuration and resolve any
 registration revision conflict before restarting the server.
 
-The manifest's current revision is `2` (adding `player_names`) and is separate from the plugin version.
+The manifest's current revision is `3` (removing the boss progression key label) and is separate from the plugin version.
 When modifying `src/Campfire.Valheim/Core/GameRegistration.cs`, increase
 `ValheimRegistration.Revision`. Campfire accepts an identical retry but rejects
 changed definitions at the same revision or any older revision.

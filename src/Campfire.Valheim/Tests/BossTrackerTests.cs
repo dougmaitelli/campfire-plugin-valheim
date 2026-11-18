@@ -23,7 +23,8 @@ public sealed class BossTrackerTests
         Assert.Equal(Now.AddSeconds(2), DateTimeOffset.Parse(gameEvent.OccurredAt));
         using var encoded = JsonDocument.Parse(new Publication { Event = gameEvent }.Encode());
         var data = encoded.RootElement.GetProperty("event").GetProperty("data");
-        Assert.Equal("defeated_gdking", data.GetProperty("progression_key").GetString());
+        Assert.Equal("The Elder", data.GetProperty("boss").GetString());
+        Assert.False(data.TryGetProperty("progression_key", out _));
         Assert.Equal("world_progression", data.GetProperty("source").GetString());
         Assert.False(data.TryGetProperty("player", out _));
         Assert.Empty(tracker.Observe("world", defeated, Now));

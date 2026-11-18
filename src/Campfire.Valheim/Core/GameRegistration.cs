@@ -20,7 +20,7 @@ public static class ValheimRegistration
 {
     // This is a persistent schema revision, not the plugin release version.
     // Increase it whenever changing the label definitions below.
-    public const long Revision = 2;
+    public const long Revision = 3;
 
     public static Publication CreatePublication() => new()
     {
@@ -42,7 +42,6 @@ public static class ValheimRegistration
                 ["valheim.boss.defeated"] = new()
                 {
                     ["boss"] = "Boss",
-                    ["progression_key"] = "Progression key",
                     ["source"] = "Source"
                 },
                 ["game.announcement"] = new() { ["message"] = "Message" }

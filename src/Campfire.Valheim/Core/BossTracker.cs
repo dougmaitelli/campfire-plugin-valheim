@@ -38,7 +38,6 @@ public sealed class BossTracker
                 Data = new()
                 {
                     ["boss"] = name,
-                    ["progression_key"] = TextBounds.Utf8(boss.Key, 128),
                     ["source"] = "world_progression"
                 }
             });
