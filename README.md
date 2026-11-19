@@ -1,119 +1,93 @@
 # Campfire Valheim
 
-A BepInEx plugin that sends Valheim server information and activity to
+Connect your Valheim dedicated server to
 [Campfire](https://github.com/dougmaitelli/Campfire), a self-hosted game server
-management panel. Install it on the dedicated server; players can use an unmodified
-Valheim client.
+management panel. See who's online and follow server activity from Campfire.
+Install the mod on the server only; players do not need to install anything.
 
 [Download the latest release](https://github.com/dougmaitelli/campfire-plugin-valheim/releases/latest/download/Campfire.Valheim.zip)
 
 ## Features
 
-- Connected player count and current player-name list, refreshed every 15 seconds.
+- Connected player count and online player list, refreshed every 15 seconds.
 - Server capacity and world name when available.
 - Crossplay invite code while the lobby is active.
-- Player join, leave, and death notifications. Deaths include the player name,
-  without a cause or killer.
-- First boss defeat notifications based on world progression. Previously defeated
-  bosses are not announced on startup, and repeat kills do not generate notifications.
-  Modded bosses use localized in-game character names when available, falling back
-  to prefab names. Boss progression keys ending in `_pN` (a positive phase number)
-  are grouped with their base key; only the highest discovered phase is monitored
-  (for example, `FrozenKing_p3` instead of `FrozenKing`). Internal progression keys
-  are not included in events.
-- Integration connection events and announcements submitted by other server mods.
-- Human-readable state and event field labels, registered once before publishing.
+- Player join, leave, and death notifications. Death notifications include the
+  player name, but not the cause of death or killer.
+- First boss defeat notifications. Previously defeated bosses are not announced
+  when the server starts, and repeat kills do not generate notifications. Modded
+  bosses use their in-game names when available.
+- Integration connection notifications and announcements from compatible server mods.
+
+## Requirements
+
+- A Linux Valheim dedicated server managed through Campfire.
+- [BepInExPack for Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
+  installed on the server.
+- Up-to-date versions of both Campfire and Spark, with game integrations enabled.
+  The online player list requires support in both. If you cannot update yet,
+  disable player names in the mod's settings before using it.
 
 ## Installation
 
 1. In Campfire, edit this server and select **Enable game integration**.
-2. Install [BepInExPack for Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
-   on your Linux dedicated server, following the pack's server instructions. Start
-   Valheim through its BepInEx launcher and keep the `-batchmode -nographics` arguments.
+2. Install BepInExPack for Valheim, following the pack's server instructions.
+   Start Valheim through its BepInEx launcher and keep the `-batchmode -nographics`
+   arguments.
 3. Extract the downloaded `Campfire.Valheim.zip` into the Valheim server directory.
    The plugin should be at
    `BepInEx/plugins/CampfireValheim/Campfire.Valheim.dll`.
-4. Start or restart the server through Campfire. The server container needs Spark's
-   integration socket mounted at `/run/campfire-game/publish.sock`; Campfire provides
-   this for newly created containers when game integrations are enabled.
+4. Start or restart the server through Campfire.
 5. Check `BepInEx/LogOutput.log` for `Campfire Valheim <version> started`, then check
    the player readings and **Activity** tab in Campfire.
 
-BepInEx creates `BepInEx/config/io.campfire.valheim.cfg` on first load. You can use
-it to disable death or boss notifications, hide player names, or override server
-capacity. Restart the server after editing it.
+## Settings
 
-## Current player list
+BepInEx creates `BepInEx/config/io.campfire.valheim.cfg` when the mod first loads.
+Edit this file to change the settings below, then restart the server.
 
-The `player_names` state field is registered as **Online players**. Select it in
-Campfire's server Discord card settings to show the roster; its selection ID is
-`field.player_names`. Campfire displays the names as comma-separated text and an
-empty list as **None**. Each heartbeat replaces the roster, including when the
-last player leaves. Stale state becomes unavailable rather than retaining names.
+| Section | Setting | What it does |
+| --- | --- | --- |
+| `General` | `Enabled` | Enable or disable the Campfire integration. Enabled by default. |
+| `Events` | `IncludePlayerNames` | Show display names in player notifications and the online player list. Enabled by default. |
+| `Events` | `ReportDeaths` | Enable or disable player death notifications. Enabled by default. |
+| `Events` | `ReportBossDefeats` | Enable or disable first boss defeat notifications. Enabled by default. |
+| `State` | `CapacityOverride` | Set the server capacity shown in Campfire. Leave at `0` to use the game's player limit when available. |
 
-Names are sorted ordinally for stable display. Different players with the same
-display name remain separate entries. The roster includes up to 64 names, each
-bounded to 128 UTF-8 bytes. It is also capped at 8 KiB of encoded JSON to keep the
-entire snapshot within Spark's 16 KiB limit, even with heavily escaped names.
-Larger rosters are truncated; the player count still includes all connected players.
+## Online player list and privacy
 
-The existing `[Events] IncludePlayerNames` setting controls both the roster and
-names in player events. Set it to `false` and restart to omit `player_names`
-entirely, not report an empty roster. Counts, world name and invite code still
-publish. The registration label remains available but contains no player names.
-No player platform IDs or IP addresses are published. Selecting the roster for a
-Discord card shares display names with everyone who can see that message.
+Select **Online players** in Campfire's server Discord card settings to show the
+current roster. Names appear as comma-separated text, or **None** when nobody is
+online. When server information becomes unavailable, the list is marked
+unavailable instead of continuing to show old names.
 
-Before using the roster, update **both Spark and Campfire** to builds supporting
-`server.game-state-lists.v1`. Older peers cannot accept list-valued state; there is
-no automatic scalar fallback. Disable `IncludePlayerNames` if scalar-only state
-is required while upgrading. Event data remains scalar-only.
+Very large rosters or unusually long names may be shortened in the displayed
+list. The player count still includes all connected players.
 
-## Registration and delivery
+To hide player names, set `IncludePlayerNames` to `false` in the `[Events]` section
+of the configuration file and restart the server. This disables the online player
+list and removes names from player notifications. Player counts, world name, and
+invite code are still shared with Campfire.
 
-At startup, the background publisher sends a version 1 label manifest to
-`PUT /v1/registration` over the same private Unix socket used for publications.
-It waits for Campfire's `204 No Content` acknowledgement before sending any
-state snapshots or events. The ordinary `valheim.integration.started` activity
-still appears, but is not used as a registration handshake.
+The mod does not share player platform IDs or IP addresses. Adding the roster to
+a Discord card shares player display names with everyone who can see that message.
 
-The manifest declares labels for `world`, `invite_code`, and `player_names`, player names on
-join/leave/death events, boss names and event sources, and announcement messages.
-Definitions are independent of current values: registering a `player` label does
-not send player names when `IncludePlayerNames` is disabled. Snapshots and events
-continue sending stable machine keys and values without repeating labels.
+## Troubleshooting
 
-Registration is idempotent and persists across panel restarts and Spark reconnects.
-The plugin re-registers after socket errors before retrying publications, but not
-on every heartbeat. Temporary failures respect `Retry-After` and use bounded
-exponential backoff. Until registration succeeds, only the latest state and a
-bounded in-memory event queue are retained; events expire after 24 hours.
+- **The mod does not start:** Confirm BepInEx is installed and the server is using
+  its launcher with `-batchmode -nographics`. Check `BepInEx/LogOutput.log` for
+  warnings or errors.
+- **No information appears in Campfire:** Confirm **Enable game integration** is
+  selected and restart the server through Campfire. If you use an existing server
+  container, check that it has Campfire's game integration connection configured;
+  Campfire provides this for newly created containers when integrations are enabled.
+- **The online player list does not work:** Update both Campfire and Spark. If
+  you cannot update yet, set `IncludePlayerNames` to `false` and restart the server
+  to use the integration without player names.
+- **A boss defeat is missing:** Only first defeats observed while the mod is
+  running are announced. Bosses already defeated when the server starts and
+  repeat kills are not announced. Also check that `ReportBossDefeats` is enabled.
 
-A permanent registration rejection (such as `400`, `403`, `404`, or `409`) pauses
-publishing and logs a warning rather than silently falling back to unregistered
-data. Check the server's game integration configuration and resolve any
-registration revision conflict before restarting the server.
-
-The manifest's current revision is `3` (removing the boss progression key label) and is separate from the plugin version.
-When modifying `src/Campfire.Valheim/Core/GameRegistration.cs`, increase
-`ValheimRegistration.Revision`. Campfire accepts an identical retry but rejects
-changed definitions at the same revision or any older revision.
-
-## Building
-
-Install the .NET SDK specified in `global.json`, then run:
-
-```sh
-make restore
-make check
-make package
-```
-
-The installable ZIP is written to `artifacts/`. Automated tests cover publishing,
-socket transport, and event processing without running Valheim.
-
-To publish a release, update `Version` in `Directory.Build.props` and push the
-matching tag (for example, `v0.1.0`). The release workflow checks the build and
-publishes the ZIP to GitHub Releases.
+## License
 
 MIT licensed. See [LICENSE](LICENSE).
